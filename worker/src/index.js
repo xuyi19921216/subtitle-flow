@@ -63,11 +63,16 @@ async function handleGenerate(request) {
       async start(controller) {
         try {
           for await (const chunk of generateArticleStream(url)) {
-            controller.enqueue(new TextEncoder().encode(chunk));
+            const sseMessage = `event: message\ndata: ${JSON.stringify(chunk)}\n\n`;
+            controller.enqueue(new TextEncoder().encode(sseMessage));
           }
+          const doneMessage = `event: done\ndata: completed\n\n`;
+          controller.enqueue(new TextEncoder().encode(doneMessage));
           controller.close();
         } catch (error) {
-          controller.error(error);
+          const errorMessage = `event: error\ndata: ${JSON.stringify(error.message)}\n\n`;
+          controller.enqueue(new TextEncoder().encode(errorMessage));
+          controller.close();
         }
       },
     });
@@ -75,8 +80,9 @@ async function handleGenerate(request) {
     return new Response(stream, {
       headers: {
         ...corsHeaders,
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
       },
     });
   } catch (error) {

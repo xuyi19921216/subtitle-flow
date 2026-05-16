@@ -19,11 +19,5 @@ export async function generateArticle(url) {
     throw new Error(error.error || '请求失败');
   }
 
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
-    const error = await response.json();
-    throw new Error(error.error || '服务器返回错误');
-  }
-
-  return response.body;
+  return response;
 }

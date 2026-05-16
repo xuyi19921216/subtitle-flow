@@ -15,22 +15,55 @@ export default function App() {
     setError('');
 
     try {
-      const stream = await generateArticle(url);
-      const reader = stream.getReader();
+      const response = await generateArticle(url);
+      const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
+      let buffer = '';
       let totalContent = '';
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
         
-        const chunk = decoder.decode(value, { stream: true });
-        totalContent += chunk;
-        setContent(totalContent);
-      }
-
-      if (!totalContent.trim()) {
-        throw new Error('生成的文章内容为空，请尝试其他视频');
+        if (done) {
+          if (!totalContent.trim()) {
+            throw new Error('生成的文章内容为空，请尝试其他视频');
+          }
+          break;
+        }
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        while (buffer.includes('\n\n')) {
+          const [event, remaining] = buffer.split('\n\n', 2);
+          buffer = remaining;
+          
+          if (!event.trim()) continue;
+          
+          const lines = event.split('\n');
+          let eventType = 'message';
+          let eventData = '';
+          
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              eventType = line.substring(7);
+            } else if (line.startsWith('data: ')) {
+              eventData = line.substring(6);
+            }
+          }
+          
+          if (eventType === 'message') {
+            const content = JSON.parse(eventData);
+            totalContent += content;
+            setContent(totalContent);
+          } else if (eventType === 'done') {
+            if (!totalContent.trim()) {
+              throw new Error('生成的文章内容为空，请尝试其他视频');
+            }
+            return;
+          } else if (eventType === 'error') {
+            throw new Error(JSON.parse(eventData));
+          }
+        }
       }
     } catch (err) {
       setError(err.message);
