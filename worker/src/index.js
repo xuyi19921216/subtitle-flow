@@ -93,44 +93,12 @@ async function handleGenerate(request) {
   }
 }
 
-async function handleTest(request) {
-  if (request.method === 'OPTIONS') return handleOptions(request);
-  
-  try {
-    const { url } = await request.json();
-    
-    if (!url || !url.includes('youtube.com') && !url.includes('youtu.be')) {
-      return new Response(JSON.stringify({ error: '无效的YouTube链接' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    return new Response(JSON.stringify({
-      success: true,
-      url: url,
-      message: 'YouTube链接已接收，准备发送给Gemini处理'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-}
-
 export default {
   async fetch(request) {
     const url = new URL(request.url);
     
     if (url.pathname === '/api/generate') {
       return handleGenerate(request);
-    }
-    
-    if (url.pathname === '/api/test') {
-      return handleTest(request);
     }
 
     return new Response('Not found', { status: 404 });
