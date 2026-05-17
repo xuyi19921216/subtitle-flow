@@ -6,12 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-async function handleOptions(request) {
+async function handleOptions() {
   return new Response(null, { headers: corsHeaders });
 }
 
-async function* generateArticleStream(youtubeUrl) {
-  const apiKey = process.env.GEMINI_API_KEY;
+async function* generateArticleStream(youtubeUrl, apiKey) {
   if (!apiKey) {
     throw new Error('Gemini API密钥未配置');
   }
@@ -41,16 +40,18 @@ async function* generateArticleStream(youtubeUrl) {
 
   for await (const chunk of response) {
     if (chunk.text) {
+      console.log(chunk.text);
       yield chunk.text;
     }
   }
 }
 
-async function handleGenerate(request) {
+async function handleGenerate(request, env) {
   if (request.method === 'OPTIONS') return handleOptions(request);
   
   try {
     const { url } = await request.json();
+    const apiKey = env.GEMINI_API_KEY;
     
     if (!url || !url.includes('youtube.com') && !url.includes('youtu.be')) {
       return new Response(JSON.stringify({ error: '无效的YouTube链接' }), {
@@ -62,7 +63,7 @@ async function handleGenerate(request) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          for await (const chunk of generateArticleStream(url)) {
+          for await (const chunk of generateArticleStream(url, apiKey)) {
             const sseMessage = `event: message\ndata: ${JSON.stringify(chunk)}\n\n`;
             controller.enqueue(new TextEncoder().encode(sseMessage));
           }
@@ -94,11 +95,11 @@ async function handleGenerate(request) {
 }
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
     
     if (url.pathname === '/api/generate') {
-      return handleGenerate(request);
+      return handleGenerate(request, env);
     }
 
     return new Response('Not found', { status: 404 });
