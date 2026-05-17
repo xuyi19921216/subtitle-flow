@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://subtitle-flow-worker.1392729514.workers.dev';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export async function generateArticle(url) {
   const response = await fetch(`${API_BASE_URL}/api/generate`, {
