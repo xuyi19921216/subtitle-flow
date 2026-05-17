@@ -23,26 +23,26 @@ export default function App() {
 
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (done) {
           if (!totalContent.trim()) {
             throw new Error('生成的文章内容为空，请尝试其他视频');
           }
           break;
         }
-        
+
         buffer += decoder.decode(value, { stream: true });
-        
+
         while (buffer.includes('\n\n')) {
           const [event, remaining] = buffer.split('\n\n', 2);
           buffer = remaining;
-          
+
           if (!event.trim()) continue;
-          
+
           const lines = event.split('\n');
           let eventType = 'message';
           let eventData = '';
-          
+
           for (const line of lines) {
             if (line.startsWith('event: ')) {
               eventType = line.substring(7);
@@ -50,18 +50,34 @@ export default function App() {
               eventData = line.substring(6);
             }
           }
-          
+
           if (eventType === 'message') {
-            const content = JSON.parse(eventData);
-            totalContent += content;
-            setContent(totalContent);
+            try {
+              const content = JSON.parse(eventData);
+              totalContent += content;
+              setContent(totalContent);
+            } catch (e) {
+              console.error('解析消息失败:', e, 'eventData:', eventData);
+            }
           } else if (eventType === 'done') {
             if (!totalContent.trim()) {
               throw new Error('生成的文章内容为空，请尝试其他视频');
             }
             return;
           } else if (eventType === 'error') {
-            throw new Error(JSON.parse(eventData));
+            try {
+              const parsedError = JSON.parse(eventData);
+              if (typeof parsedError === 'string') {
+                throw new Error(parsedError);
+              } else if (parsedError && parsedError.message) {
+                throw new Error(parsedError.message);
+              } else {
+                throw new Error(String(parsedError));
+              }
+            } catch {
+              const cleanError = eventData.replace(/^"|"$/g, '');
+              throw new Error(cleanError || '未知错误');
+            }
           }
         }
       }
@@ -99,7 +115,7 @@ export default function App() {
               输入视频链接，AI自动生成结构化中文文章
             </p>
           </div>
-          
+
           <UrlInput onSubmit={handleGenerate} isLoading={isGenerating} />
         </section>
 
