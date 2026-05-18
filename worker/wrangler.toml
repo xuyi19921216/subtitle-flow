@@ -7,3 +7,13 @@ GEMINI_API_KEY = ""
 
 [env.production]
 name = "subtitle-flow-worker-prod"
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+
+[placement]
+region = "aws:ap-northeast-1"

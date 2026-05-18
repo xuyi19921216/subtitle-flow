@@ -1,10 +1,56 @@
 import { GoogleGenAI } from '@google/genai';
+import { assets } from './assets.js';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+function getContentType(path) {
+  if (path.endsWith('.html')) return 'text/html';
+  if (path.endsWith('.css')) return 'text/css';
+  if (path.endsWith('.js')) return 'application/javascript';
+  if (path.endsWith('.json')) return 'application/json';
+  if (path.endsWith('.svg')) return 'image/svg+xml';
+  if (path.endsWith('.png')) return 'image/png';
+  if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
+  if (path.endsWith('.gif')) return 'image/gif';
+  if (path.endsWith('.ico')) return 'image/x-icon';
+  return 'text/plain';
+}
+
+async function handleStatic(request) {
+  const url = new URL(request.url);
+  let path = url.pathname;
+  
+  if (path === '/') {
+    path = '/index.html';
+  }
+
+  const asset = assets[path];
+
+  if (asset) {
+    return new Response(asset, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': getContentType(path),
+      },
+    });
+  }
+
+  const indexAsset = assets['/index.html'];
+  if (indexAsset) {
+    return new Response(indexAsset, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/html',
+      },
+    });
+  }
+
+  return new Response('Not found', { status: 404 });
+}
 
 async function handleOptions() {
   return new Response(null, { headers: corsHeaders });
@@ -40,7 +86,7 @@ async function handleGenerate(request, env) {
       async start(controller) {
         try {
           console.log('初始化 Gemini AI...');
-          const ai = new GoogleGenAI({ apiKey });
+          const ai = new GoogleGenAI({ apiKey, timeout: 120000 });
           const model = 'gemini-3-flash-preview';
 
           console.log('准备 contents...');
@@ -107,10 +153,13 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     
-    if (url.pathname === '/api/generate') {
-      return handleGenerate(request, env);
+    if (url.pathname.startsWith('/api/')) {
+      if (url.pathname === '/api/generate') {
+        return handleGenerate(request, env);
+      }
+      return new Response('Not found', { status: 404 });
     }
 
-    return new Response('Not found', { status: 404 });
+    return handleStatic(request);
   },
 };
